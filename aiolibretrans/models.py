@@ -1,7 +1,4 @@
-import aiohttp
-
-
-class BaseClass:
+class BaseResponseClass:
     def __init__(self, json_response: dict):
         self._dict = json_response
 
@@ -12,7 +9,7 @@ class BaseClass:
         return self._dict
 
 
-class Translation(BaseClass):
+class Translation(BaseResponseClass):
     def __str__(self):
         return self._dict["translatedText"]
 
@@ -20,7 +17,7 @@ class Translation(BaseClass):
         return f"Translation('{self.__str__()}')"
 
 
-class Detection(BaseClass):
+class Detection(BaseResponseClass):
     @property
     def confidence(self):
         """Confidence of the detection."""
@@ -35,7 +32,7 @@ class Detection(BaseClass):
         return f"Detection({self.__dict__()})"
 
 
-class Language(BaseClass):
+class Language(BaseResponseClass):
     @property
     def code(self):
         """Language code (ISO 639)."""

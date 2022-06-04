@@ -2,6 +2,12 @@
 
 Python asynchronous bindings for LibreTranslate.
 
+### Install the library
+
+```
+pip install git+https://github.com/JeanLeShiba/aioLibreTranslate
+```
+
 ### Quickstart/Example of usage
 
 Code example (not representative) :

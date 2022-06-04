@@ -25,7 +25,7 @@ def is_input_valid(text: str, limit: int = 5000) -> bool:
         limit (int, optional): Limit of characters. Defaults to 5000.
 
     Returns:
-        bool
+        bool: True if no exception is raised.
     """
     if not isinstance(text, str):
         raise ValueError(f"Text must be a string not '{type(text)}'.")
@@ -44,11 +44,12 @@ async def check_response(response: aiohttp.ClientResponse) -> bool:
         response (aiohttp.ClientResponse): The client reponse.
 
     Raises:
-        TooManyRequests: Too many requests were made (error 429).
-        RequestError: Failed trying to make a request call (error 200).
+        BadRequest: A bad request was made, probably the language used (error 400).
+        TooManyRequests: Too many requests have been made (error 429).
+        RequestError: Failed trying to make a request call (!= status 200).
 
     Returns:
-        bool
+        bool: True if no exception is raised.
     """
     if response.status == 400:
         error = (await response.json(loads=loads))["error"]
@@ -75,11 +76,11 @@ class LibreTranslate:
     Raises:
         SameSourceTarget: Raised when the source and target are the same
 
-    Methods:
-        close() -> Coroutine : Closes the aiohttp session.
-        translate(text:str) -> Coroutine : Translates text.
-        detect(text:str) -> Coroutine : Detects the language(s) of a text.
-        get_languages() -> Coroutine : Retrieve list of supported languages.
+    Funcs:
+        close() -> Coroutine[None] : Closes the aiohttp session.
+        translate(text:str) -> Coroutine[Translation] : Translates text.
+        detect(text:str, source:str=None, target:str=None) -> Coroutine[List[Detection]] : Detects the language(s) of a text.
+        get_languages() -> Coroutine[List[Language]] : Retrieve list of supported languages.
     """
 
     def __init__(
@@ -88,8 +89,7 @@ class LibreTranslate:
         target: str = "en",
         session: aiohttp.ClientSession = None,
         url: str = URLS["argosopentech.com"],
-        api_key: str = None,
-        **kwargs
+        api_key: str = None
     ):
         self.source = source
         self.target = target
@@ -100,7 +100,6 @@ class LibreTranslate:
             headers={"Content-Type": "application/json"})
         self.url = url
         self.api_key = api_key
-        self.kwargs = kwargs
 
     async def close(self) -> None:
         """Closes the aiohttp session."""
@@ -112,28 +111,30 @@ class LibreTranslate:
     async def __aexit__(self, *args):
         await self.close()
 
-    async def translate(self, text: str) -> Translation:
+    async def translate(self, text: str, source: str = None, target: str = None, **kwargs) -> Translation:
         """Translates text.
 
         Args:
-            text (str): The text you want to translate.
+            text (str): The text.
+            source (str, optional): Soruce language of the text, defaults to self.source if None.
+            target (str, optional): Target language, defaults to self.target if None.
 
         Returns:
-            str: Translated text.
+            Translation: Translated text class, can be stringified.
         """
         if is_input_valid(text):
             params = {
-                "source": self.source,
-                "target": self.target,
+                "source": source if source else self.source,
+                "target": target if target else self.target,
                 "q": text,
             }
             if self.api_key:
                 params["api_key"] = self.api_key
-            async with self.session.post(url=self.url+"translate", data=dumps(params), **self.kwargs) as response:
+            async with self.session.post(url=self.url+"translate", data=dumps(params), **kwargs) as response:
                 if await check_response(response):
                     return Translation(await response.json(loads=loads))
 
-    async def detect(self, text: str) -> List[Detection]:
+    async def detect(self, text: str, **kwargs) -> List[Detection]:
         """Detects the language(s) of a text.
 
         Args:
@@ -148,20 +149,20 @@ class LibreTranslate:
             }
             if self.api_key:
                 params["api_key"] = self.api_key
-            async with self.session.post(url=self.url+"detect", data=dumps(params), **self.kwargs) as response:
+            async with self.session.post(url=self.url+"detect", data=dumps(params), **kwargs) as response:
                 if await check_response(response):
                     return [
                         Detection(detection_dict)
                         for detection_dict in await response.json(loads=loads)
                     ]
 
-    async def get_languages(self) -> List[Language]:
+    async def get_languages(self, **kwargs) -> List[Language]:
         """Retrieve list of supported languages.
 
         Returns:
             List[Language]: List of `aiolibretrans.Language`.
         """
-        async with self.session.post(url=self.url+"languages", data=dumps({"api_key": self.api_key}) if self.api_key else None, **self.kwargs) as response:
+        async with self.session.post(url=self.url+"languages", data=dumps({"api_key": self.api_key}) if self.api_key else None, **kwargs) as response:
             if await check_response(response):
                 return [
                     Language(language_dict)
